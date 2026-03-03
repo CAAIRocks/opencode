@@ -14,6 +14,7 @@ import { useGlobalSync } from "@/context/global-sync"
 import { useLayout } from "@/context/layout"
 import { useFile } from "@/context/file"
 import { useLanguage } from "@/context/language"
+import { useExtensions } from "@/context/extensions"
 import { decode64 } from "@/utils/base64"
 import { getRelativeTime } from "@/utils/time"
 
@@ -263,6 +264,7 @@ export function DialogSelectFile(props: { mode?: DialogSelectFileMode; onOpenFil
   const navigate = useNavigate()
   const globalSDK = useGlobalSDK()
   const globalSync = useGlobalSync()
+  const extensions = useExtensions()
   const filesOnly = () => props.mode === "files"
   const sessionKey = createMemo(() => `${params.dir}${params.id ? "/" + params.id : ""}`)
   const tabs = createMemo(() => layout.tabs(sessionKey))
@@ -332,7 +334,26 @@ export function DialogSelectFile(props: { mode?: DialogSelectFileMode; onOpenFil
     const [files, nextSessions] = await Promise.all([file.searchFiles(query), Promise.resolve(sessions(query))])
     const category = language.t("palette.group.files")
     const entries = files.map((path) => createFileEntry(path, category))
-    return [...commandEntries.list(), ...nextSessions, ...entries]
+
+    // Extension search results
+    const extSearchResults = extensions.searchProviders().flatMap((provider: any) => {
+      if (!query) return []
+      return provider.search(query).map((result: any) => ({
+        id: `ext:${provider.id}:${result.id}`,
+        type: "command" as EntryType,
+        title: result.title,
+        description: result.description,
+        category: provider.category,
+        option: {
+          id: `ext.${provider.id}.${result.id}`,
+          title: result.title,
+          description: result.description,
+          onSelect: result.onSelect,
+        } as CommandOption,
+      }))
+    })
+
+    return [...commandEntries.list(), ...nextSessions, ...entries, ...extSearchResults]
   }
 
   const handleMove = (item: Entry | undefined) => {

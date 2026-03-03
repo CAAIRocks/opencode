@@ -14,8 +14,10 @@ import { usePlatform } from "@/context/platform"
 import { useSDK } from "@/context/sdk"
 import { normalizeServerUrl, ServerConnection, useServer } from "@/context/server"
 import { useSync } from "@/context/sync"
+import { useExtensions } from "@/context/extensions"
 import { checkServerHealth, type ServerHealth } from "@/utils/server-health"
 import { DialogSelectServer } from "./dialog-select-server"
+import { Dynamic } from "solid-js/web"
 
 const pollMs = 10_000
 
@@ -167,6 +169,7 @@ export function StatusPopover() {
   const dialog = useDialog()
   const language = useLanguage()
   const navigate = useNavigate()
+  const extensions = useExtensions()
 
   const fetcher = platform.fetch ?? globalThis.fetch
   const servers = createMemo(() => {
@@ -194,7 +197,7 @@ export function StatusPopover() {
       const status = mcpStatus(name)
       return status !== "connected" && status !== "disabled"
     })
-    return serverHealthy && !anyMcpIssue
+    return serverHealthy && !anyMcpIssue && extensions.overallHealthy()
   })
 
   return (
@@ -252,6 +255,13 @@ export function StatusPopover() {
               {pluginCount() > 0 ? `${pluginCount()} ` : ""}
               {language.t("status.popover.tab.plugins")}
             </Tabs.Trigger>
+            <For each={extensions.statusBarItems()}>
+              {(item) => (
+                <Tabs.Trigger value={`ext:${item.id}`} data-slot="tab" class="text-12-regular">
+                  {item.label}
+                </Tabs.Trigger>
+              )}
+            </For>
           </Tabs.List>
 
           <Tabs.Content value="servers">
@@ -411,6 +421,18 @@ export function StatusPopover() {
               </div>
             </div>
           </Tabs.Content>
+
+          <For each={extensions.statusBarItems()}>
+            {(item) => (
+              <Tabs.Content value={`ext:${item.id}`}>
+                <div class="flex flex-col px-2 pb-2">
+                  <div class="flex flex-col p-3 bg-background-base rounded-sm min-h-14">
+                    <Dynamic component={item.component} />
+                  </div>
+                </div>
+              </Tabs.Content>
+            )}
+          </For>
         </Tabs>
       </div>
     </Popover>

@@ -31,6 +31,7 @@ import { SessionComposerRegion, createSessionComposerState } from "@/pages/sessi
 import { SessionMobileTabs } from "@/pages/session/session-mobile-tabs"
 import { SessionSidePanel } from "@/pages/session/session-side-panel"
 import { useSessionHashScroll } from "@/pages/session/use-session-hash-scroll"
+import { useExtensions } from "@/context/extensions"
 
 const emptyUserMessages: UserMessage[] = []
 
@@ -307,14 +308,19 @@ export default function Page() {
     ),
   )
 
+  const extensions = useExtensions()
   const isDesktop = createMediaQuery("(min-width: 768px)")
   const desktopReviewOpen = createMemo(() => isDesktop() && view().reviewPanel.opened())
   const desktopFileTreeOpen = createMemo(() => isDesktop() && layout.fileTree.opened())
-  const desktopSidePanelOpen = createMemo(() => desktopReviewOpen() || desktopFileTreeOpen())
+  const desktopExtensionPanelOpen = createMemo(() => isDesktop() && layout.extensionPanel.opened() && extensions.sidebarWidgets().length > 0)
+  const desktopSidePanelOpen = createMemo(() => desktopReviewOpen() || desktopFileTreeOpen() || desktopExtensionPanelOpen())
   const sessionPanelWidth = createMemo(() => {
     if (!desktopSidePanelOpen()) return "100%"
     if (desktopReviewOpen()) return `${layout.session.width()}px`
-    return `calc(100% - ${layout.fileTree.width()}px)`
+    let subtract = 0
+    if (desktopFileTreeOpen()) subtract += layout.fileTree.width()
+    if (desktopExtensionPanelOpen()) subtract += layout.extensionPanel.width()
+    return `calc(100% - ${subtract}px)`
   })
   const centered = createMemo(() => isDesktop() && !desktopReviewOpen())
 

@@ -3,6 +3,7 @@ import { createStore } from "solid-js/store"
 import { createMediaQuery } from "@solid-primitives/media"
 import { useParams } from "@solidjs/router"
 import { Tabs } from "@opencode-ai/ui/tabs"
+import { Icon } from "@opencode-ai/ui/icon"
 import { IconButton } from "@opencode-ai/ui/icon-button"
 import { TooltipKeybind } from "@opencode-ai/ui/tooltip"
 import { ResizeHandle } from "@opencode-ai/ui/resize-handle"
@@ -11,6 +12,7 @@ import { DragDropProvider, DragDropSensors, DragOverlay, SortableProvider, close
 import type { DragEvent } from "@thisbeyond/solid-dnd"
 import { ConstrainDragYAxis, getDraggableId } from "@/utils/solid-dnd"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
+import { Dynamic } from "solid-js/web"
 
 import FileTree from "@/components/file-tree"
 import { SessionContextUsage } from "@/components/session-context-usage"
@@ -21,6 +23,7 @@ import { useFile, type SelectedLineRange } from "@/context/file"
 import { useLanguage } from "@/context/language"
 import { useLayout } from "@/context/layout"
 import { useSync } from "@/context/sync"
+import { useExtensions } from "@/context/extensions"
 import { createFileTabListSync } from "@/pages/session/file-tab-scroll"
 import { FileTabContent } from "@/pages/session/file-tabs"
 import { createOpenSessionFileTab, getTabReorderIndex } from "@/pages/session/helpers"
@@ -39,6 +42,7 @@ export function SessionSidePanel(props: {
   const language = useLanguage()
   const command = useCommand()
   const dialog = useDialog()
+  const extensions = useExtensions()
 
   const isDesktop = createMediaQuery("(min-width: 768px)")
   const sessionKey = createMemo(() => `${params.dir}${params.id ? "/" + params.id : ""}`)
@@ -46,7 +50,8 @@ export function SessionSidePanel(props: {
   const view = createMemo(() => layout.view(sessionKey))
 
   const reviewOpen = createMemo(() => isDesktop() && view().reviewPanel.opened())
-  const open = createMemo(() => isDesktop() && (view().reviewPanel.opened() || layout.fileTree.opened()))
+  const extensionPanelOpen = createMemo(() => isDesktop() && layout.extensionPanel.opened() && extensions.sidebarWidgets().length > 0)
+  const open = createMemo(() => isDesktop() && (view().reviewPanel.opened() || layout.fileTree.opened() || extensionPanelOpen()))
   const reviewTab = createMemo(() => isDesktop())
 
   const info = createMemo(() => (params.id ? sync.session.get(params.id) : undefined))
@@ -116,6 +121,7 @@ export function SessionSidePanel(props: {
     const active = tabs().active()
     if (active === "context") return "context"
     if (active === "review" && reviewTab()) return "review"
+    if (active && active.startsWith("ext:")) return active
     if (active && file.pathFromTab(active)) return normalizeTab(active)
 
     const first = openedTabs()[0]
@@ -273,6 +279,18 @@ export function SessionSidePanel(props: {
                     <SortableProvider ids={openedTabs()}>
                       <For each={openedTabs()}>{(tab) => <SortableTab tab={tab} onTabClose={tabs().close} />}</For>
                     </SortableProvider>
+                    <For each={extensions.tabs()}>
+                      {(tab) => (
+                        <Tabs.Trigger value={`ext:${tab.id}`}>
+                          <div class="flex items-center gap-1.5">
+                            <Show when={tab.icon}>
+                              <Icon name={tab.icon! as Parameters<typeof Icon>[0]["name"]} size="small" />
+                            </Show>
+                            <div>{tab.label}</div>
+                          </div>
+                        </Tabs.Trigger>
+                      )}
+                    </For>
                     <StickyAddButton>
                       <TooltipKeybind
                         title={language.t("command.file.open")}
@@ -324,6 +342,19 @@ export function SessionSidePanel(props: {
                 <Show when={activeFileTab()} keyed>
                   {(tab) => <FileTabContent tab={tab} />}
                 </Show>
+
+                {/* Extension tabs content */}
+                <For each={extensions.tabs()}>
+                  {(tab) => (
+                    <Tabs.Content value={`ext:${tab.id}`} class="flex flex-col h-full overflow-hidden contain-strict">
+                      <Show when={activeTab() === `ext:${tab.id}`}>
+                        <div class="relative pt-2 flex-1 min-h-0 overflow-auto">
+                          <Dynamic component={tab.component} />
+                        </div>
+                      </Show>
+                    </Tabs.Content>
+                  )}
+                </For>
               </Tabs>
               <DragOverlay>
                 <Show when={store.activeDraggable} keyed>
@@ -421,6 +452,49 @@ export function SessionSidePanel(props: {
               collapseThreshold={160}
               onResize={layout.fileTree.resize}
               onCollapse={layout.fileTree.close}
+            />
+          </div>
+        </Show>
+
+        <Show when={layout.extensionPanel.opened() && extensions.sidebarWidgets().length > 0}>
+          <div
+            id="extension-panel"
+            class="relative shrink-0 h-full border-l border-border-weak-base"
+            style={{ width: `${layout.extensionPanel.width()}px` }}
+          >
+            <div class="h-full flex flex-col overflow-hidden bg-background-stronger">
+              <div class="flex items-center justify-between px-3 py-2 border-b border-border-weak-base shrink-0">
+                <span class="text-12-medium text-text-base">Extensions</span>
+                <IconButton
+                  icon="close-small"
+                  variant="ghost"
+                  class="h-5 w-5"
+                  onClick={() => layout.extensionPanel.close()}
+                  aria-label="Close extensions panel"
+                />
+              </div>
+              <div class="flex-1 min-h-0 overflow-y-auto">
+                <For each={extensions.sidebarWidgets()}>
+                  {(widget) => (
+                    <div class="border-b border-border-weak-base last:border-b-0">
+                      <div class="px-3 py-1.5 text-11-medium text-text-weak uppercase tracking-wider">
+                        {widget.label}
+                      </div>
+                      <Dynamic component={widget.component} />
+                    </div>
+                  )}
+                </For>
+              </div>
+            </div>
+            <ResizeHandle
+              direction="horizontal"
+              edge="start"
+              size={layout.extensionPanel.width()}
+              min={200}
+              max={480}
+              collapseThreshold={160}
+              onResize={layout.extensionPanel.resize}
+              onCollapse={layout.extensionPanel.close}
             />
           </div>
         </Show>

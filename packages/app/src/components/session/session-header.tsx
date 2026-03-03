@@ -13,7 +13,7 @@ import { getFilename } from "@opencode-ai/util/path"
 import { useParams } from "@solidjs/router"
 import { createEffect, createMemo, For, onCleanup, Show } from "solid-js"
 import { createStore } from "solid-js/store"
-import { Portal } from "solid-js/web"
+import { Dynamic, Portal } from "solid-js/web"
 import { useCommand } from "@/context/command"
 import { useGlobalSDK } from "@/context/global-sdk"
 import { useLanguage } from "@/context/language"
@@ -21,6 +21,7 @@ import { useLayout } from "@/context/layout"
 import { usePlatform } from "@/context/platform"
 import { useServer } from "@/context/server"
 import { useSync } from "@/context/sync"
+import { useExtensions } from "@/context/extensions"
 import { decode64 } from "@/utils/base64"
 import { Persist, persisted } from "@/utils/persist"
 import { StatusPopover } from "../status-popover"
@@ -229,6 +230,7 @@ export function SessionHeader() {
   const sync = useSync()
   const platform = usePlatform()
   const language = useLanguage()
+  const extensions = useExtensions()
 
   const projectDirectory = createMemo(() => decode64(params.dir) ?? "")
   const project = createMemo(() => {
@@ -610,6 +612,26 @@ export function SessionHeader() {
                   </Show>
                 </div>
               </Show>
+              {/* Extension toolbar buttons */}
+              <For each={extensions.toolbarButtons()}>
+                {(btn) => (
+                  <Show when={!btn.component} fallback={<Dynamic component={btn.component!} />}>
+                    <Tooltip value={btn.label}>
+                      <Button
+                        variant="ghost"
+                        class="rounded-md h-[24px] px-2 border border-border-weak-base bg-surface-panel shadow-none"
+                        onClick={() => btn.onClick?.()}
+                        aria-label={btn.label}
+                      >
+                        <div class="flex items-center gap-1.5">
+                          <Icon name={btn.icon as Parameters<typeof Icon>[0]["name"]} size="small" />
+                          <span class="text-12-regular text-text-strong">{btn.label}</span>
+                        </div>
+                      </Button>
+                    </Tooltip>
+                  </Show>
+                )}
+              </For>
               <div class="flex items-center gap-1">
                 <div class="hidden md:flex items-center gap-1 shrink-0">
                   <TooltipKeybind
@@ -700,6 +722,30 @@ export function SessionHeader() {
                       </div>
                     </Button>
                   </TooltipKeybind>
+
+                  <Show when={extensions.sidebarWidgets().length > 0}>
+                    <Tooltip value="Toggle extensions">
+                      <Button
+                        variant="ghost"
+                        class="titlebar-icon w-8 h-6 p-0 box-border"
+                        onClick={() => layout.extensionPanel.toggle()}
+                        aria-label="Toggle extensions panel"
+                        aria-expanded={layout.extensionPanel.opened()}
+                        aria-controls="extension-panel"
+                      >
+                        <div class="relative flex items-center justify-center size-4">
+                          <Icon
+                            size="small"
+                            name="dot-grid"
+                            classList={{
+                              "text-icon-strong": layout.extensionPanel.opened(),
+                              "text-icon-weak": !layout.extensionPanel.opened(),
+                            }}
+                          />
+                        </div>
+                      </Button>
+                    </Tooltip>
+                  </Show>
                 </div>
               </div>
             </div>

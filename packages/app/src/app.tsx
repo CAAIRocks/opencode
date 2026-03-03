@@ -11,6 +11,7 @@ import { Navigate, Route, Router } from "@solidjs/router"
 import { ErrorBoundary, type JSX, lazy, type ParentProps, Show, Suspense } from "solid-js"
 import { CommandProvider } from "@/context/command"
 import { CommentsProvider } from "@/context/comments"
+import { ExtensionProvider } from "@/context/extensions"
 import { FileProvider } from "@/context/file"
 import { GlobalSDKProvider } from "@/context/global-sdk"
 import { GlobalSyncProvider } from "@/context/global-sync"
@@ -40,11 +41,13 @@ const HomeRoute = () => (
 )
 
 const SessionRoute = () => (
-  <SessionProviders>
-    <Suspense fallback={<Loading />}>
-      <Session />
-    </Suspense>
-  </SessionProviders>
+  <ExtensionProvider>
+    <SessionProviders>
+      <Suspense fallback={<Loading />}>
+        <Session />
+      </Suspense>
+    </SessionProviders>
+  </ExtensionProvider>
 )
 
 const SessionIndexRoute = () => <Navigate href="session" />

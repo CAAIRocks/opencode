@@ -11,6 +11,7 @@ import {
 } from "solid-js"
 import { useKeyboard } from "@opentui/solid"
 import { type KeybindKey, useKeybind } from "@tui/context/keybind"
+import { useExtensions } from "@tui/context/extensions"
 
 type Context = ReturnType<typeof init>
 const ctx = createContext<Context>()
@@ -32,11 +33,39 @@ function init() {
   const [registrations, setRegistrations] = createSignal<Accessor<CommandOption[]>[]>([])
   const [suspendCount, setSuspendCount] = createSignal(0)
   const dialog = useDialog()
+  let extensionCommands: Accessor<any[]> | undefined
+  try {
+    const extensions = useExtensions()
+    extensionCommands = () => extensions.commands()
+  } catch {
+    // Extensions context may not be available (e.g., during tests)
+  }
   const keybind = useKeybind()
 
   const entries = createMemo(() => {
     const all = registrations().flatMap((x) => x())
-    return all.map((x) => ({
+    // Merge extension-registered commands
+    const extCmds = extensionCommands?.() ?? []
+    const merged: CommandOption[] = [
+      ...all,
+      ...extCmds.map((cmd: any): CommandOption => ({
+        title: cmd.title,
+        value: cmd.value,
+        description: cmd.description,
+        category: cmd.category ?? "Extensions",
+        keybind: cmd.keybind,
+        suggested: cmd.suggested,
+        hidden: cmd.hidden,
+        slash: cmd.slash,
+        onSelect: cmd.onSelect
+          ? (dialog: any) => {
+              cmd.onSelect()
+              dialog.clear()
+            }
+          : undefined,
+      })),
+    ]
+    return merged.map((x) => ({
       ...x,
       footer: x.keybind ? keybind.print(x.keybind) : undefined,
     }))

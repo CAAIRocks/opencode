@@ -247,6 +247,10 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
           width: DEFAULT_PANEL_WIDTH,
           tab: "changes" as "changes" | "all",
         },
+        extensionPanel: {
+          opened: false,
+          width: DEFAULT_PANEL_WIDTH,
+        },
         session: {
           width: DEFAULT_SESSION_WIDTH,
         },
@@ -664,6 +668,38 @@ export const { use: useLayout, provider: LayoutProvider } = createSimpleContext(
             return
           }
           setStore("fileTree", "width", width)
+        },
+      },
+      extensionPanel: {
+        opened: createMemo(() => store.extensionPanel?.opened ?? false),
+        width: createMemo(() => store.extensionPanel?.width ?? DEFAULT_PANEL_WIDTH),
+        open() {
+          if (!store.extensionPanel) {
+            setStore("extensionPanel", { opened: true, width: DEFAULT_PANEL_WIDTH })
+            return
+          }
+          setStore("extensionPanel", "opened", true)
+        },
+        close() {
+          if (!store.extensionPanel) {
+            setStore("extensionPanel", { opened: false, width: DEFAULT_PANEL_WIDTH })
+            return
+          }
+          setStore("extensionPanel", "opened", false)
+        },
+        toggle() {
+          if (!store.extensionPanel) {
+            setStore("extensionPanel", { opened: true, width: DEFAULT_PANEL_WIDTH })
+            return
+          }
+          setStore("extensionPanel", "opened", (x) => !x)
+        },
+        resize(width: number) {
+          if (!store.extensionPanel) {
+            setStore("extensionPanel", { opened: true, width })
+            return
+          }
+          setStore("extensionPanel", "width", width)
         },
       },
       session: {

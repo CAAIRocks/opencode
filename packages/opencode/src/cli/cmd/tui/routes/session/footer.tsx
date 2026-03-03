@@ -1,10 +1,11 @@
-import { createMemo, Match, onCleanup, onMount, Show, Switch } from "solid-js"
+import { createMemo, For, Match, onCleanup, onMount, Show, Switch } from "solid-js"
 import { useTheme } from "../../context/theme"
 import { useSync } from "../../context/sync"
 import { useDirectory } from "../../context/directory"
 import { useConnected } from "../../component/dialog-model"
 import { createStore } from "solid-js/store"
 import { useRoute } from "../../context/route"
+import { useExtensions } from "../../context/extensions"
 
 export function Footer() {
   const { theme } = useTheme()
@@ -19,6 +20,7 @@ export function Footer() {
   })
   const directory = useDirectory()
   const connected = useConnected()
+  const extensions = useExtensions()
 
   const [store, setStore] = createStore({
     welcome: false,
@@ -82,6 +84,8 @@ export function Footer() {
                 {mcp()} MCP
               </text>
             </Show>
+            {/* Extension status widgets */}
+            <For each={extensions.statusWidgets()}>{(widget) => widget.render()}</For>
             <text fg={theme.textMuted}>/status</text>
           </Match>
         </Switch>

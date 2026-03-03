@@ -145,6 +145,136 @@ export type AuthOuathResult = { url: string; instructions: string } & (
     }
 )
 
+// --- TUI Extension Types ---
+
+export interface TuiSidebarWidget {
+  id: string
+  label: string
+  order?: number
+  collapsible?: boolean
+  render: () => any // JSX.Element - using any for framework-agnostic plugin API
+}
+
+export interface TuiCommandOption {
+  title: string
+  value: string
+  description?: string
+  category?: string
+  keybind?: string
+  slash?: { name: string; aliases?: string[] }
+  suggested?: boolean
+  hidden?: boolean
+  onSelect?: () => void
+}
+
+export type TuiDialogFactory = (props?: Record<string, any>) => any // JSX.Element
+
+export interface TuiStatusWidget {
+  id: string
+  label: string
+  order?: number
+  render: () => any // JSX.Element - terminal text content
+}
+
+export interface TuiExtensionInput {
+  sidebar: {
+    register(widget: TuiSidebarWidget): () => void
+  }
+  command: {
+    register(options: TuiCommandOption[]): () => void
+  }
+  dialog: {
+    register(id: string, factory: TuiDialogFactory): void
+    show(id: string, props?: Record<string, any>): void
+  }
+  status: {
+    register(widget: TuiStatusWidget): () => void
+  }
+  context: {
+    readonly directory: string
+    readonly session: () => any
+    readonly messages: () => any[]
+    readonly diffs: () => any[]
+    readonly config: () => any
+    onEvent(type: string, handler: (event: any) => void): () => void
+  }
+}
+
+// --- Web Extension Types ---
+
+export interface WebTabContribution {
+  id: string
+  label: string
+  icon?: string
+  order?: number
+  component: () => any // SolidJS component
+}
+
+export interface WebToolbarContribution {
+  id: string
+  label: string
+  icon: string
+  order?: number
+  onClick?: () => void
+  component?: () => any // SolidJS component for custom rendering
+}
+
+export interface WebStatusBarContribution {
+  id: string
+  label: string
+  order?: number
+  healthy?: () => boolean
+  component: () => any // SolidJS component
+}
+
+export interface WebSearchProviderContribution {
+  id: string
+  category: string
+  search(query: string): Array<{
+    id: string
+    title: string
+    description?: string
+    onSelect: () => void
+  }>
+}
+
+export interface WebSidebarWidgetContribution {
+  id: string
+  label: string
+  order?: number
+  component: () => any // SolidJS component
+}
+
+export interface WebContributions {
+  tabs?: WebTabContribution[]
+  toolbarButtons?: WebToolbarContribution[]
+  statusBarItems?: WebStatusBarContribution[]
+  searchProviders?: WebSearchProviderContribution[]
+  sidebarWidgets?: WebSidebarWidgetContribution[]
+}
+
+export interface WebExtensionContext {
+  readonly directory: () => string
+  readonly session: () => any
+  readonly messages: () => any[]
+  readonly diffs: () => any[]
+  readonly config: () => any
+  readonly providers: () => any[]
+  onEvent(type: string, handler: (event: any) => void): () => void
+  command: {
+    trigger(id: string): void
+    register(options: any[]): () => void
+  }
+  sdk: {
+    session: {
+      prompt(input: { sessionID: string; content: string }): Promise<any>
+      command(input: { sessionID: string; command: string }): Promise<any>
+      fork(input: { sessionID: string }): Promise<any>
+      delete(input: { sessionID: string }): Promise<any>
+    }
+  }
+}
+
 export interface Hooks {
   event?: (input: { event: Event }) => Promise<void>
   config?: (input: Config) => Promise<void>
@@ -231,4 +361,14 @@ export interface Hooks {
    * Modify tool definitions (description and parameters) sent to LLM
    */
   "tool.definition"?: (input: { toolID: string }, output: { description: string; parameters: any }) => Promise<void>
+  /**
+   * Called when the TUI initializes, providing access to TUI extension registries.
+   * Only called in TUI mode (not web or desktop).
+   */
+  "tui.init"?: (input: TuiExtensionInput) => Promise<void>
+  /**
+   * Declares UI contributions for the web interface.
+   * Called during plugin initialization to collect web UI extensions.
+   */
+  "web.init"?: (input: WebExtensionContext) => Promise<WebContributions | void>
 }

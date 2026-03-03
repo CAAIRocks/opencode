@@ -10,6 +10,7 @@ import { Installation } from "@/installation"
 import { useKeybind } from "../../context/keybind"
 import { useDirectory } from "../../context/directory"
 import { useKV } from "../../context/kv"
+import { useExtensions } from "../../context/extensions"
 import { TodoItem } from "../../component/todo-item"
 
 export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
@@ -62,6 +63,7 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
 
   const directory = useDirectory()
   const kv = useKV()
+  const extensions = useExtensions()
 
   const hasProviders = createMemo(() =>
     sync.data.provider.some((x) => x.id !== "opencode" || Object.values(x.models).some((y) => y.cost?.input !== 0)),
@@ -266,6 +268,21 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
                 </Show>
               </box>
             </Show>
+            {/* Extension sidebar widgets */}
+            <For each={extensions.sidebarWidgets()}>
+              {(widget) => (
+                <box>
+                  <Show when={widget.collapsible !== false}>
+                    <box flexDirection="row" gap={1}>
+                      <text fg={theme.text}>
+                        <b>{widget.label}</b>
+                      </text>
+                    </box>
+                  </Show>
+                  {widget.render()}
+                </box>
+              )}
+            </For>
           </box>
         </scrollbox>
 

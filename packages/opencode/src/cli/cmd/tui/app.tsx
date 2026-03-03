@@ -16,6 +16,7 @@ import { DialogModel, useConnected } from "@tui/component/dialog-model"
 import { DialogMcp } from "@tui/component/dialog-mcp"
 import { DialogStatus } from "@tui/component/dialog-status"
 import { DialogThemeList } from "@tui/component/dialog-theme-list"
+import { ExtensionProvider, useExtensions } from "@tui/context/extensions"
 import { DialogHelp } from "./ui/dialog-help"
 import { CommandProvider, useCommandDialog } from "@tui/component/dialog-command"
 import { DialogAgent } from "@tui/component/dialog-agent"
@@ -40,6 +41,7 @@ import { writeHeapSnapshot } from "v8"
 import { PromptRefProvider, usePromptRef } from "./context/prompt"
 import { TuiConfigProvider } from "./context/tui-config"
 import { TuiConfig } from "@/config/tui"
+import { Plugin } from "@/plugin"
 
 async function getTerminalBackgroundColor(): Promise<"dark" | "light"> {
   // can't set raw mode if not a TTY
@@ -159,7 +161,9 @@ export function tui(input: {
                                         <FrecencyProvider>
                                           <PromptHistoryProvider>
                                             <PromptRefProvider>
-                                              <App />
+                                              <ExtensionProvider>
+                                                <App />
+                                              </ExtensionProvider>
                                             </PromptRefProvider>
                                           </PromptHistoryProvider>
                                         </FrecencyProvider>
@@ -213,6 +217,7 @@ function App() {
   const toast = useToast()
   const { theme, mode, setMode } = useTheme()
   const sync = useSync()
+  const extensions = useExtensions()
   const exit = useExit()
   const promptRef = usePromptRef()
 
@@ -732,6 +737,26 @@ function App() {
       message: `OpenCode v${evt.properties.version} is available. Run 'opencode upgrade' to update manually.`,
       duration: 10000,
     })
+  })
+
+  // Initialize TUI extensions from plugins
+  onMount(async () => {
+    try {
+      await Plugin.trigger("tui.init", extensions.api, undefined as any)
+    } catch (e) {
+      console.error("[tui] failed to trigger tui.init:", e)
+    }
+  })
+
+  // Handle dialog requests from extensions
+  createEffect(() => {
+    const req = extensions.dialogRequest()
+    if (!req) return
+    const reg = extensions.dialogs().find((d: any) => d.id === req.id)
+    if (reg) {
+      dialog.replace(() => reg.factory(req.props))
+    }
+    extensions.clearDialogRequest()
   })
 
   return (
